@@ -1,0 +1,31 @@
+from airflow import DAG
+from datetime import datetime
+from airflow.providers.docker.operators.docker import DockerOperator
+from airflow.operators.bash import BashOperator
+import docker
+from airflow.operators.python import PythonOperator
+from docker.types import Mount
+
+default_arg = {"owner": '$user'}
+
+with DAG(
+        '$dag_id',
+        start_date=datetime.today(),
+        schedule_interval='$cron',
+        catchup=False,
+) as dag:
+    t1 = DockerOperator(task_id='docker',
+                        image='python_test_david_8:latest',
+                        command='/code/test.py',
+                        docker_url='unix://var/run/docker.sock',
+                        mounts=[Mount(
+                            source="/home/elad/david_airflow_2.7.0/airflow_docker/beam_images_dockerOperator/code",
+                            target="/code", type='bind'),
+                            Mount(
+                                source="/home",
+                                target="/home", type='bind'), Mount(
+                                source="/mnt",
+                                target="/mnt", type='bind')], network_mode='bridge',
+                        device_requests=[docker.types.DeviceRequest(count=-1, capabilities=[['gpu']])])
+
+    t1
