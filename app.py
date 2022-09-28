@@ -1,10 +1,11 @@
+import requests
 from flask import Flask, request, json, jsonify, Response, make_response
 from string import Template
 from requests.auth import HTTPBasicAuth
 from utils import api_utils
 
 app = Flask(__name__)
-AIRFLOW_API = 'http://192.168.10.45:8080/api/v1/dags'
+AIRFLOW_API = 'http://127.0.0.1:8080/api/v1/dags'
 auth = HTTPBasicAuth('airflow', 'airflow')
 
 
@@ -46,15 +47,33 @@ def delete_dag():
         if all(k in args.keys() for k in keys):
             dag_id = args['dag_id']
             owner = args['owner']
+            permanently = args['permanently'] if 'permanently' in args.keys() else False
             response_status, response_content = api_utils.find_dag_by_id(dag_id, AIRFLOW_API, auth)
             if response_status == 200:
-                return api_utils.delete_dag_by_id(response_content, owner, auth, dag_id, AIRFLOW_API)
+                return api_utils.delete_dag_by_id(response_content, owner, auth, dag_id, AIRFLOW_API, permanently)
             else:
                 return make_response(jsonify({'message': f'{dag_id} deletion FAILED due to missing dag'}), 404)
         else:
             return make_response(jsonify({'message': 'dag_id and owner params must be pass'}), 404)
     else:
         raise Exception('method DELETE should be passed')
+
+
+@app.route('/edit_cron', methods=['DELETE', 'POST', 'GET', 'PUT', 'PATCH'])
+def edit_cron():
+    editable = ['is_paused']
+    if request.method == 'PATCH':
+        args = json.loads(request.data)
+        dag_id = args['dag_id']
+        del args['dag_id']
+        if len(args) <= 0:
+            return make_response(jsonify({'message': 'fsdfeg'}), 500)
+        key = [k for k in args.keys() if k != 'dag_id'][0]
+        if key in editable:
+            data = {key: args[key]}
+            rea = requests.patch(AIRFLOW_API+f'/{dag_id}', json=data, auth=auth)
+            return make_response(jsonify({'message': 'success'}), 200)
+        return make_response(jsonify({'message': 'failed'}), 500)
 
 
 if __name__ == '__main__':
