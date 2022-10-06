@@ -7,7 +7,7 @@ from utils import api_utils
 app = Flask(__name__)
 AIRFLOW_API = 'http://127.0.0.1:8080/api/v1/dags'
 auth = HTTPBasicAuth('airflow', 'airflow')
-
+dag_mount = 'C:/Users/davidb/Desktop/airflow_docker/dags/'
 
 @app.route('/')
 @app.route('/health')
@@ -32,7 +32,7 @@ def create_dag():
             "dag_id": f'{args["user"]}_{args["name"]}'
         })
         dag_name = f'{args["user"]}_{args["name"]}'
-        with open(dag_name + '_' + '.py', 'w') as writer:
+        with open(dag_mount + '_' + dag_name + '_' + '.py', 'w') as writer:
             writer.write(result)
     else:
         raise Exception('method POST should be passed')
