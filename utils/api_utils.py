@@ -1,9 +1,13 @@
+import time
+from datetime import datetime
 import os.path
 from typing import Any
 import requests
 import json
 from flask import make_response, jsonify, Response
 from requests.auth import HTTPBasicAuth
+from requests.adapters import Retry, HTTPAdapter
+from croniter import croniter
 
 
 def http_request(authentication: HTTPBasicAuth, url: str, request_type: str = 'GET', data: dict = None):
@@ -42,7 +46,7 @@ def find_dag_by_id(dag_id: str, airflow_api: str, authentication: HTTPBasicAuth)
 
 
 def delete_dag_by_id(response_content: dict, owner: str, authentication: HTTPBasicAuth, dag_id: str,
-                     airflow_api: str, is_delete_permanently: str=False) -> Response:
+                     airflow_api: str, is_delete_permanently: str = False) -> Response:
     if 'owners' in response_content and owner in response_content['owners']:
         response_status_code, response_content = http_request(authentication, airflow_api + f'/{dag_id}', 'DELETE')
         if response_status_code == 204:
@@ -58,8 +62,31 @@ def edit_cron_dag_by_id(dag_id: str, authentication: HTTPBasicAuth, new_cron_exp
     try:
         response_status_code, response_content = http_request(authentication, airflow_api + '/' + f'{dag_id}', 'GET')
         if response_status_code == 200:
-            response_code, response_content = http_request(authentication, airflow_api + f'/{dag_id}', 'PATCH', {"is_paused": True})
+            response_code, response_content = http_request(authentication, airflow_api + f'/{dag_id}', 'PATCH',
+                                                           {"is_paused": True})
             old_cron = response_content['schedule_interval'].get('value')
 
     except Exception as ex:
         print(ex)
+
+
+def validate_cron(cron_expression: str):
+    time = datetime.now()
+    base_time = datetime(time.year, time.month, time.day, time.hour, time.minute)
+    datetime_iter = croniter(cron_expression, base_time)
+    next_exec = datetime_iter.get_next(datetime)
+    if (next_exec - base_time).total_seconds() / 60 <= 60:
+        return False
+    return True
+
+
+def activate_dag(api, auth, dag_id):
+    is_paused = {"is_paused": True}
+    wait, tries, res = 30, 5, 500
+    while tries > 0:
+        res = requests.patch(api + f'/{dag_id}', json=is_paused, auth=auth)
+        if res.status_code == 200:
+            break
+        time.sleep(wait)
+        tries -= 1
+    return res.status_code

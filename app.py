@@ -20,8 +20,12 @@ def create_dag():
     if request.method == 'POST':
         args = json.loads(request.data)
         try:
-            with open('./templates/dag.template', 'r') as reader:
-                src_file = Template(reader.read())
+            if 'parameters' in args.keys():
+                with open('./templates/dag2.template', 'r') as reader:
+                    src_file = Template(reader.read())
+            else:
+                with open('./templates/dag.template', 'r') as reader:
+                    src_file = Template(reader.read())
         except Exception as ex:
             print(f"Failed opened dag template, error {ex}")
             return make_response(jsonify({"message": "cannot process the request"}), 422)
@@ -32,8 +36,10 @@ def create_dag():
             "dag_id": f'{args["user"]}_{args["name"]}'
         })
         dag_name = f'{args["user"]}_{args["name"]}'
+        # api_utils.validate_cron(args["cron"])
         with open(dag_mount + '_' + dag_name + '_' + '.py', 'w') as writer:
             writer.write(result)
+       # sc = api_utils.activate_dag(AIRFLOW_API, auth, dag_name)
     else:
         raise Exception('method POST should be passed')
     return make_response(jsonify({"message": f"DAG has been added: http://192.168.10.45:8080/dags/{dag_name}"}), 201)
